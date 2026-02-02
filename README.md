@@ -1,5 +1,3 @@
-markdown
-
 # Microsoft-Entra-ID-access-management-lab
 This lab has been created to document and update the processes/errors while configuring and maintaining user accounts / conditional     accesses / PIM within Entra ID.
 
