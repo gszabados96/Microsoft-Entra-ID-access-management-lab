@@ -15,6 +15,7 @@ This lab has been created to document and update the processes/errors while conf
     5, Added roles to the tenants within the IT department by manually assigning the roles in their profile (see added screenshots).
     6, Enabled the authentication on the accounts (screen recording is added).
     7, Created an audit report of the authentication methods.
+
         
 # Lessons learned
     1, As I've received the error message "My domain is verified but I still get: ERROR: The domain portion of the userPrincipalName property is invalid. You must use one of the verified domain names in your organization." many times when submitting the bulk user creation, I've investigated the issue and found out I haven't added any specific domain names within Entra ID Custom Domain Names.
