@@ -22,8 +22,7 @@ This lab has been created to document and update the processes/errors while conf
       -> resolved it by checking and using the primary domain "gyulaszabados96gmail.onmicrosoft.com
              " in Custom Domain Names. (-> will update the domain name later)
     2, When using the New-AzADUser command with the strings, I've found out that it is easier to generate information while using Strings for user details e.g. $displayName = "John Doe".
-        -> That way, I can simply remove the extra details and then modify it to another one e.g. I only need to create 1 user with different information, so I can just modify the field within
-            "" . 
+        -> That way, I can simply remove the extra details and then modify it to another one e.g. I only need to create 1 user with different information, so I can just modify the field within.
 
 
 # Problems encountered -> resolution/workaround:
@@ -32,7 +31,8 @@ This lab has been created to document and update the processes/errors while conf
     2, The script shows the "Access is denied to the folder" EM and cannot export CSV 
         -> Current workaround: Exporting the data into VS Code for now, will find a way
             to export to a file. 
-    3, The script didn't realize some parts, e.g. mailName as cmdlets -> started using strings and then entered a name inside the "" part -> it has resolved the issue.
+    3, The script didn't realize some parts, e.g. mailName as cmdlets -> started using strings and then entered a name inside the "" part -> it
+            has resolved the issue.
 
 # Author: 
     Gyula Szabados
