@@ -33,7 +33,7 @@ This lab has been created to document and update the processes/errors while conf
             to export to a file. 
     3, The script didn't realize some parts, e.g. mailName as cmdlets -> started using strings and then entered a name inside the "" part -> it
             has resolved the issue.
-
+    3, Microsoft Graph is not working due to a having a basic Azure account (see in Screenshot proof folder) -> will try to find a workaround.
 # Author: 
     Gyula Szabados
     LinkedIn Profile: www.linkedin.com/in/gyula-szabados-83b889277
