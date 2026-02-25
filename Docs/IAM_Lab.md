@@ -16,6 +16,7 @@ This lab has been created to document and update the processes/errors while conf
     6, Enabled the authentication on the accounts (screen recording is added).
     7, Created an audit report of the authentication methods.
     8, I've deleted an user and then restored it to also give this option a try.
+    9, Created groups with both Assigned and Dynamic membership types for testing. 
 
         
 # Lessons learned
@@ -34,7 +35,8 @@ This lab has been created to document and update the processes/errors while conf
             to export to a file. 
     3, The script didn't realize some parts, e.g. mailName as cmdlets -> started using strings and then entered a name inside the "" part -> it
             has resolved the issue.
-    3, Microsoft Graph is not working due to a having a basic Azure account (see in Screenshot proof folder) -> will try to find a workaround.
+    4, Microsoft Graph is not working due to a having a basic Azure account (see in Screenshot proof folder) -> will try to find a workaround.
+    5, Tried to create a small script to modify user account in AAD (named UpdateUser) -> as it doesn-t run properly, I'll work on it later.
 # Author: 
     Gyula Szabados
     LinkedIn Profile: www.linkedin.com/in/gyula-szabados-83b889277
