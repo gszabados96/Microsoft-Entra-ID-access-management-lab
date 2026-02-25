@@ -15,6 +15,7 @@ This lab has been created to document and update the processes/errors while conf
     5, Added roles to the tenants within the IT department by manually assigning the roles in their profile (see added screenshots).
     6, Enabled the authentication on the accounts (screen recording is added).
     7, Created an audit report of the authentication methods.
+    8, I've deleted an user and then restored it to also give this option a try.
 
         
 # Lessons learned
