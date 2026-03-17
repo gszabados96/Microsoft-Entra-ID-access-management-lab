@@ -1,3 +1,0 @@
-Clear-Host
-Connect-AzAccount
-Update-AzADUser -UPNOrObjectId "Ahmed@gyulaszabados96gmail.onmicrosoft.com" -Department "IT"

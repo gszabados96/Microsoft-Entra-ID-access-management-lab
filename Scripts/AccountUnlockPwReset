@@ -1,0 +1,234 @@
+# Account unlock and pw reset
+
+[CmdletBinding()]
+param(
+    [Parameter(Mandatory=$false,
+               HelpMessage="Provide sAMAccountName or UPN (e.g., jdoe or jdoe@contoso.com).")]
+    [ValidateNotNullOrEmpty()]
+    [string]$Identity
+)
+
+# ---------------------------
+# Utility / Output helpers
+# ---------------------------
+function Write-Info([string]$msg)  { Write-Host $msg -ForegroundColor Cyan }
+function Write-Ok([string]$msg)    { Write-Host $msg -ForegroundColor Green }
+function Write-Warn([string]$msg)  { Write-Warning $msg }
+function Write-Fail([string]$msg)  { Write-Error $msg }
+
+# ---------------------------
+# AD Module check/install
+# ---------------------------
+function Import-ADModule {
+    try {
+        if (-not (Get-Module -ListAvailable -Name ActiveDirectory)) {
+            throw "The ActiveDirectory module is not available. Please install RSAT / AD tools."
+        }
+        Import-Module ActiveDirectory -ErrorAction Stop
+        return $true
+    } catch {
+        Write-Fail "Step: Load AD Module → $_"
+        return $false
+    }
+}
+
+# ---------------------------
+# Step 2: Resolve user object
+# ---------------------------
+function Get-User([string]$id) {
+    try {
+        # Try direct identity first
+        $user = Get-ADUser -Identity $id -Properties LockedOut -ErrorAction Stop
+        return $user
+    } catch {
+        try {
+            # Try by sAMAccountName or UPN
+            $user = Get-ADUser -Filter { SamAccountName -eq $id -or UserPrincipalName -eq $id } -Properties LockedOut -ErrorAction Stop
+            if ($null -eq $user) { throw "User '$id' was not found." }
+            return $user
+        } catch {
+            Write-Fail "Step: Resolve User '$id' → $($_.Exception.Message)"
+            return $null
+        }
+    }
+}
+
+# ---------------------------
+# Step 3: Check the lock status
+# ---------------------------
+function Test-AccountLocked($user) {
+    try {
+        if ($null -eq $user) { throw "User object is null." }
+        # Prefer LockedOut property; fallback to Search-ADAccount if needed
+        if ($user.PSObject.Properties.Name -contains 'LockedOut') {
+            return [bool]$user.LockedOut
+        } else {
+            $lockedUser = Search-ADAccount -LockedOut -UsersOnly -ErrorAction Stop |
+                          Where-Object { $_.SamAccountName -eq $user.SamAccountName }
+            return ($null -ne $lockedUser)
+        }
+    } catch {
+        Write-Warn "Step: Check Lock Status for '$($user.SamAccountName)' → $($_.Exception.Message). Falling back to 'not locked'."
+        return $false
+    }
+}
+
+# ---------------------------
+# Step 4: Unlocking the account if needed.
+# ---------------------------
+function Unlock-User($user) {
+    try {
+        if ($null -eq $user) { throw "User object is null." }
+        Unlock-ADAccount -Identity $user -ErrorAction Stop
+        # Exact message required by the user (preserving spelling):
+        Write-Ok "Account has been succesfully unlocked."
+        return $true
+    } catch {
+        Write-Fail "Step: Unlock '$($user.SamAccountName)' → $($_.Exception.Message)"
+        return $false
+    }
+}
+
+# ---------------------------
+# PW generating
+# ---------------------------
+function New-ComplexPassword([int]$Length = 12) {
+    try {
+        if ($Length -lt 12) { throw "Password length must be at least 12." }
+
+        $upper   = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+        $lower   = 'abcdefghijklmnopqrstuvwxyz'
+        $digits  = '0123456789'
+        $special = '.'
+
+        $rng = New-Object System.Security.Cryptography.RNGCryptoServiceProvider
+
+        function Get-RandomChar([string]$chars) {
+            $bytes = New-Object 'Byte[]' 4
+            $rng.GetBytes($bytes)
+            $idx = [BitConverter]::ToUInt32($bytes,0) % $chars.Length
+            return $chars[$idx]
+        }
+
+        # Ensure at least one of each category
+        $required = @(
+            (Get-RandomChar $upper),
+            (Get-RandomChar $lower),
+            (Get-RandomChar $digits),
+            (Get-RandomChar $special)
+        )
+
+        $allChars = $upper + $lower + $digits + $special
+        $remaining = @()
+        for ($i = 0; $i -lt ($Length - $required.Count); $i++) {
+            $remaining += (Get-RandomChar $allChars)
+        }
+
+        $chars = $required + $remaining
+
+        # Fisher–Yates shuffle
+        for ($i = $chars.Count - 1; $i -gt 0; $i--) {
+            $bytes = New-Object 'Byte[]' 4
+            $rng.GetBytes($bytes)
+            $j = [BitConverter]::ToUInt32($bytes,0) % ($i + 1)
+            $tmp = $chars[$i]
+            $chars[$i] = $chars[$j]
+            $chars[$j] = $tmp
+        }
+
+        $pwd = -join $chars
+
+        # Check the PW complexity (defensive)
+        if ($pwd -notmatch '[A-Z]') { throw "Password lacks uppercase." }
+        if ($pwd -notmatch '[a-z]') { throw "Password lacks lowercase." }
+        if ($pwd -notmatch '\d')    { throw "Password lacks digit." }
+        if ($pwd -notmatch '[^A-Za-z0-9]') { throw "Password lacks special character." }
+
+        return $pwd
+    } catch {
+        Write-Fail "Step: Generate Password → $($_.Exception.Message)"
+        return $null
+    }
+}
+
+# ---------------------------
+# Step 6: Changing the user pw
+# ---------------------------
+function Set-UserPassword($user, [string]$plainPwd) {
+    try {
+        if ($null -eq $user)    { throw "User object is null." }
+        if ([string]::IsNullOrWhiteSpace($plainPwd)) { throw "Generated password is empty." }
+
+        $secure = ConvertTo-SecureString -String $plainPwd -AsPlainText -Force
+        Set-ADAccountPassword -Identity $user -Reset -NewPassword $secure -ErrorAction Stop
+
+        # Exact message required by the user:
+        Write-Ok "Password has been changed"
+
+        # Also display the generated password (if your process requires handing it to the user).
+        Write-Info "New password for '$($user.SamAccountName)': $plainPwd"
+        Write-Info "Advise the user to change it after 24 hours have passsed."
+        # Optionally force change at next logon (uncomment if desired)
+        # Set-ADUser -Identity $user -ChangePasswordAtLogon $true
+
+        return $true
+    } catch {
+        Write-Fail "Step: Set Password for '$($user.SamAccountName)' → $($_.Exception.Message)"
+        return $false
+    }
+}
+
+# ---------------------------
+# Running the whole script.
+# ---------------------------
+try {
+    if (-not (Import-ADModule)) { exit 1 }
+
+    if (-not $Identity) {
+        $Identity = Read-Host "Enter the person's User ID"
+        if ([string]::IsNullOrWhiteSpace($Identity)) {
+            Write-Fail "Step: Input Identity → No identity provided."
+            exit 1
+        }
+    }
+
+    $user = Get-User -id $Identity
+    if ($null -eq $user) { exit 1 }
+
+    $sam = $user.SamAccountName
+    Write-Info "Target user: $sam"
+
+    $isLocked = Test-AccountLocked -user $user
+    if ($isLocked) {
+        $unlockChoice = Read-Host "The account '$sam' is LOCKED. Do you want to unlock it? (Y/N)"
+        if ($unlockChoice -match '^[Yy]$') {
+            $unlockSuccess = Unlock-User -user $user
+            if (-not $unlockSuccess) {
+                Write-Warn "Account '$sam' remains locked due to the error above."
+            }
+        } else {
+            Write-Info "Skipping unlock for '$sam'."
+        }
+    } else {
+        Write-Info "The account '$sam' is not locked."
+    }
+
+    $pwdChoice = Read-Host "Do you want to change the password for '$sam'? (Y/N)"
+    if ($pwdChoice -match '^[Yy]$') {
+        $newPwd = New-ComplexPassword -Length 12
+        if ($null -eq $newPwd) {
+            Write-Fail "Step: Generate Password → Failed; skipping password change."
+        } else {
+            $pwdSet = Set-UserPassword -user $user -plainPwd $newPwd
+            if (-not $pwdSet) {
+                Write-Warn "Password was not changed due to the error above."
+            }
+        }
+    } else {
+        Write-Info "Password change skipped for '$sam'."
+    }
+
+} catch {
+    Write-Fail "Unexpected error: $($_.Exception.Message)"
+    exit 1
+}
